@@ -79,12 +79,24 @@ class _LogInScreenState extends State<LogInScreen> {
                   );
 
                   if (response.statusCode == 200) {
+                    final data = jsonDecode(response.body);
+                    final userId = data['user']['id'];
+                    final username = data['user']['username'];
+
+                    // Store user info (we'll use simple method for now)
+                    print('Logged in as: $username (ID: $userId)');
+
                     //Success
                     print('Login Successful');
                     // Navigate to login screen or show success message
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => HomeScreen()),
+                      MaterialPageRoute(
+                        builder: (context) => HomeScreen(
+                          currentUserId: userId,
+                          currentUsername: username,
+                        ),
+                      ),
                     );
                   } else {
                     print('Login Failed');

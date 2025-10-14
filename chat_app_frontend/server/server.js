@@ -101,4 +101,43 @@ app.get('/api/users', async (req, res) => {
   }
 })
 
+app.post('/api/messages', async (req, res) => {
+  const { sender_id, receiver_id, message } = req.body;
+
+  try {
+    const newMessage = await pool.query(
+      'INSERT INTO messages (sender_id, receiver_id, message) VALUES ($1, $2, $3) RETURNING *',
+      [sender_id, receiver_id, message]
+    );
+
+    res.status(201).json({
+      message: 'Message sent successfully',
+      sentMessage: newMessage.rows[0]
+    });
+  } catch (err) {
+    console.log('Error sending message:', err);
+    res.status(500).json({ error: 'Failed to send message' });
+  }
+});
+
+app.get('/api/messages/:user1_id/:user2_id', async (req, res) => {
+  const { user1_id, user2_id } = req.params;
+
+  try {
+    const messages = await pool.query(`
+      SELECT * FROM messages 
+      WHERE (sender_id = $1 AND receiver_id = $2) 
+         OR (sender_id = $2 AND receiver_id = $1)
+      ORDER BY timestamp ASC
+    `, [user1_id, user2_id]);
+
+    res.json({
+      messages: messages.rows
+    });
+  } catch (err) {
+    console.log('Error fetching messages:', err);
+    res.status(500).json({ error: 'Failed to fetch messages' });
+  }
+});
+
 app.listen(PORT, () => console.log(`Server has started on: ${PORT}`))

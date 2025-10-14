@@ -1,4 +1,3 @@
-import 'package:chat_app_frontend/screens/home_screen.dart';
 import 'package:chat_app_frontend/screens/log_in_screen.dart';
 import 'package:chat_app_frontend/screens/sign_up_screen.dart';
 import 'package:flutter/material.dart';
@@ -19,7 +18,6 @@ class MyApp extends StatelessWidget {
       routes: {
         '/log-in': (context) => LogInScreen(),
         '/sign-up': (context) => SignUpScreen(),
-        '/home-screen': (context) => HomeScreen(),
       },
       //Start with SignUpScreen
       initialRoute: SignUpScreen.routeName,

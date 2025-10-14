@@ -12,8 +12,8 @@ POST http://localhost:8383/api/login
 Content-Type: application/json
 
 {
-    "username": "tongi",
-    "password": "tongi@mexico"
+    "username": "sheik",
+    "password": "sheik7pro"
 }
 
 ### TEST SERVER CONNECTION
@@ -21,3 +21,6 @@ GET http://localhost:8383/api/test
 
 ### VIEW ALL USERS
 GET http://localhost:8383/api/users
+
+###TEST THE GET MESSAGES API
+GET http://localhost:8383/api/messages/1/2
