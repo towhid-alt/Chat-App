@@ -1,5 +1,5 @@
 import 'dart:convert';
-
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -25,11 +25,50 @@ class _ChatScreenState extends State<ChatScreen> {
   TextEditingController messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   List<dynamic> messages = [];
+  IO.Socket? socket; // ← Declare the socket variable
+
+  @override
+  void dispose() {
+    socket?.disconnect();
+    socket?.close();
+    super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
+    initSocket(); // ← This will create the actual connection
     fetchChatHistory();
+  }
+
+  void initSocket() {
+    socket = IO.io('http://localhost:8383', <String, dynamic>{
+      // ← Now socket has a real connection
+      'transports': ['websocket'],
+    });
+
+    // Add connection logging
+    socket!.on('connect', (_) {
+      print('✅ Socket connected: ${socket!.id}');
+    });
+
+    socket!.on('error', (error) {
+      print('❌ Socket error: $error');
+    });
+
+    socket!.connect();
+
+    // Join user's personal room
+    socket!.emit('join_chat', widget.currentUserId.toString());
+
+    // Listen for new messages
+    socket!.on('receive_message', (data) {
+      print('📨 Received message via socket: $data');
+      setState(() {
+        messages.add(data);
+      });
+      _scrollToBottom();
+    });
   }
 
   void _scrollToBottom() {
@@ -67,34 +106,14 @@ class _ChatScreenState extends State<ChatScreen> {
     final messageText = messageController.text.trim();
     if (messageText.isEmpty) return;
 
-    try {
-      final response = await http.post(
-        Uri.parse('http://localhost:8383/api/messages'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'sender_id': widget.currentUserId,
-          'receiver_id': int.parse(widget.otherUserId),
-          'message': messageText,
-        }),
-      );
+    // Send via socket instead of HTTP
+    socket!.emit('send_message', {
+      'senderId': widget.currentUserId,
+      'receiverId': int.parse(widget.otherUserId),
+      'message': messageText,
+    });
 
-      if (response.statusCode == 201) {
-        // Add the sent message to our local list
-        final newMessage = {
-          'sender_id': widget.currentUserId,
-          'message': messageText,
-        };
-
-        setState(() {
-          messages.add(newMessage);
-        });
-
-        messageController.clear();
-        fetchChatHistory();
-      }
-    } catch (e) {
-      print('Error sending message: $e');
-    }
+    messageController.clear();
   }
 
   @override
@@ -111,7 +130,8 @@ class _ChatScreenState extends State<ChatScreen> {
               itemBuilder: (context, index) {
                 final message = messages[index];
 
-                final isMe = message['sender_id'] == 1; //Hardcoded for now
+                final isMe =
+                    message['sender_id'] == widget.currentUserId; //Main Issue
 
                 return Align(
                   alignment: isMe
