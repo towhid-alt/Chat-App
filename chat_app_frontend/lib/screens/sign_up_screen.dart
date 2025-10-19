@@ -1,3 +1,4 @@
+import 'package:chat_app_frontend/config.dart';
 import 'package:chat_app_frontend/screens/log_in_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -76,7 +77,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               onPressed: () async {
                 try {
                   final response = await http.post(
-                    Uri.parse('http://localhost:8383/api/signup'),
+                    Uri.parse('${Config.baseUrl}/api/signup'),
                     headers: {'Content-Type': 'application/json'},
                     body: jsonEncode({
                       'username': usernameController.text,
@@ -105,11 +106,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ).showSnackBar(SnackBar(content: Text('Network error: $e')));
                 }
                 ;
-
-                child:
-                Text('Sign Up');
               },
-              child: null,
+              child: Text('Sign Up'),
             ),
           ),
 

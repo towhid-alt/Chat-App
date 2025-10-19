@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'dart:io' show Platform, File;
+import 'package:chat_app_frontend/config.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -26,13 +29,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   List<dynamic> messages = [];
   IO.Socket? socket; // ← Declare the socket variable
-
-  @override
-  void dispose() {
-    socket?.disconnect();
-    socket?.close();
-    super.dispose();
-  }
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -42,7 +39,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void initSocket() {
-    socket = IO.io('http://localhost:8383', <String, dynamic>{
+    socket = IO.io('http://192.168.1.6:8383', <String, dynamic>{
       // ← Now socket has a real connection
       'transports': ['websocket'],
     });
@@ -64,6 +61,7 @@ class _ChatScreenState extends State<ChatScreen> {
     // Listen for new messages
     socket!.on('receive_message', (data) {
       print('📨 Received message via socket: $data');
+      if (!mounted) return; // ✅ Skip if widget is gone
       setState(() {
         messages.add(data);
       });
@@ -85,7 +83,7 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       final response = await http.get(
         Uri.parse(
-          'http://localhost:8383/api/messages/${widget.currentUserId}/${widget.otherUserId}',
+          'http://interroad-nontragical-odessa.ngrok-free.dev/api/messages/${widget.currentUserId}/${widget.otherUserId}',
         ),
       );
 
@@ -116,6 +114,64 @@ class _ChatScreenState extends State<ChatScreen> {
     messageController.clear();
   }
 
+  // Add this function to pick image
+  Future<void> _pickImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 80,
+      );
+
+      if (image != null) {
+        await _sendImage(File(image.path));
+      }
+    } catch (e) {
+      print('Error picking image: $e');
+    }
+  }
+
+  // Add this function to send image
+
+  Future<void> _sendImage(File imageFile) async {
+    try {
+      // For mobile platforms
+      if (Platform.isAndroid || Platform.isIOS) {
+        var request = http.MultipartRequest(
+          'POST',
+          Uri.parse('${Config.baseUrl}/api/upload-image'),
+        );
+
+        request.fields['sender_id'] = widget.currentUserId.toString();
+        request.fields['receiver_id'] = widget.otherUserId;
+
+        request.files.add(
+          await http.MultipartFile.fromPath('image', imageFile.path),
+        );
+
+        var response = await request.send();
+
+        if (response.statusCode == 201) {
+          print('✅ Image sent successfully');
+        }
+      } else {
+        // For web platform, use different approach
+        print('Web platform detected - need different implementation');
+      }
+    } catch (e) {
+      print('Error sending image: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    socket?.off('receive_message'); // ✅ Stop the socket listener
+    socket?.disconnect();
+    socket?.close();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -129,7 +185,7 @@ class _ChatScreenState extends State<ChatScreen> {
               itemCount: messages.length,
               itemBuilder: (context, index) {
                 final message = messages[index];
-
+                final isImage = message['type'] == 'image';
                 final isMe =
                     message['sender_id'] == widget.currentUserId; //Main Issue
 
@@ -144,12 +200,45 @@ class _ChatScreenState extends State<ChatScreen> {
                       color: isMe ? Colors.blue : Colors.grey[300],
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
-                      message['message'],
-                      style: TextStyle(
-                        color: isMe ? Colors.white : Colors.black,
-                      ),
-                    ),
+
+                    child: isImage
+                        ? GestureDetector(
+                            onTap: () {
+                              // We'll add image preview later
+                              print('Image tapped: ${message['message']}');
+                            },
+                            child: Image.network(
+                              message['message'], // This contains the image URL
+                              width: 200,
+                              height: 200,
+                              fit: BoxFit.cover,
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Container(
+                                      width: 200,
+                                      height: 200,
+                                      child: Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    );
+                                  },
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  width: 200,
+                                  height: 200,
+                                  color: Colors.grey,
+                                  child: Icon(Icons.error),
+                                );
+                              },
+                            ),
+                          )
+                        : Text(
+                            message['message'],
+                            style: TextStyle(
+                              color: isMe ? Colors.white : Colors.black,
+                            ),
+                          ),
                   ),
                 );
               },
@@ -161,6 +250,11 @@ class _ChatScreenState extends State<ChatScreen> {
             padding: EdgeInsets.all(8.0),
             child: Row(
               children: [
+                IconButton(
+                  icon: Icon(Icons.image),
+                  onPressed: _pickImage,
+                  tooltip: 'Send Image',
+                ),
                 Expanded(
                   child: TextField(
                     controller: messageController,

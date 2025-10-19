@@ -4,10 +4,9 @@ const pool = new Pool({
   user: 'postgres', //database username
   host: 'localhost',
   database: 'postgres', // Use default database first
-  password: 'sheik7pro', // Use the password you set during installation
+  password: 'sheik7pro' , // Use the password you set during installation
   port: 5432,
 });
-
 // Test connection with better error handling
 pool.on('connect', () => {
   console.log('✅ Database connected successfully');
